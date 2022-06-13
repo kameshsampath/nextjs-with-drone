@@ -1,0 +1,38 @@
+---
+kind: pipeline
+type: docker
+name: nextjs-with-drone
+
+# remove this section if your CPU is amd64
+platform:
+  os: linux
+  arch: arm64
+
+steps:
+  - name: yarn-install
+    image: docker.io/node:lts-alpine
+    commands:
+      - apk add --no-cache libc6-compat
+      - cd /app-build
+      - cp /drone/src/package.json ./
+      - cp /drone/src/yarn.lock ./
+      - yarn install --frozen-lockfile
+      - cp -r /drone/src/* .
+      - yarn build
+    volumes:
+      - name: app-build-dir
+        path: /app-build
+  - name: build-image
+    image: gcr.io/kaniko-project/executor:debug
+    commands:
+      - >
+        /kaniko/executor
+        --context /app-build
+        --dockerfile Dockerfile
+        --destination ttl.sh/nextjswithdrone/my-app:1h
+    volumes:
+      - name: app-build-dir
+        path: /app-build
+volumes:
+  - name: app-build-dir
+    temp: {}
